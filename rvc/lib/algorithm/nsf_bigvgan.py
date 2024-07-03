@@ -53,7 +53,7 @@ class SineGen(torch.nn.Module):
         self.noise_std = noise_std
         self.harmonic_num = harmonic_num
         self.dim = self.harmonic_num + 1
-        self.sampling_rate = samp_rate
+        self.sampling_rate = float(samp_rate)
         self.voiced_threshold = voiced_threshold
         self.flag_for_pulse = flag_for_pulse
 
