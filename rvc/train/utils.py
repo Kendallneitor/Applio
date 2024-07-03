@@ -10,7 +10,6 @@ import matplotlib.pylab as plt
 
 MATPLOTLIB_FLAG = False
 
-
 def replace_keys_in_dict(d, old_key_part, new_key_part):
     """
     Replaces keys in a dictionary recursively.
@@ -214,6 +213,7 @@ def plot_spectrogram_to_numpy(spectrogram):
 
         matplotlib.use("Agg")
         MATPLOTLIB_FLAG = True
+
 
     fig, ax = plt.subplots(figsize=(10, 2))
     im = ax.imshow(spectrogram, aspect="auto", origin="lower", interpolation="none")

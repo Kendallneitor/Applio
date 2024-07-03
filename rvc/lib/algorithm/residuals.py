@@ -344,22 +344,21 @@ class ResidualCouplingBlock(torch.nn.Module):
             self.flows.append(Flip())
 
     def forward(
-        self,
-        x: torch.Tensor,
-        x_mask: torch.Tensor,
-        g: Optional[torch.Tensor] = None,
-        reverse: bool = False,
+            self,
+            x: torch.Tensor,
+            x_mask: torch.Tensor,
+            g: Optional[torch.Tensor] = None,
+            reverse: bool = False,
     ):
         if not reverse:
             for flow in self.flows:
                 x, _ = flow(x, x_mask, g=g, reverse=reverse)
         else:
             for flow in self.flows[::-1]:
-                x = flow.forward(x, x_mask, g=g, reverse=reverse)
+                x, _ = flow.forward(x, x_mask, g=g, reverse=reverse)
         return x
 
     def remove_weight_norm(self):
-        """Removes weight normalization from the coupling layers."""
         for i in range(self.n_flows):
             self.flows[i * 2].remove_weight_norm()
 
@@ -421,9 +420,7 @@ class ResidualCouplingLayer(torch.nn.Module):
             p_dropout=p_dropout,
             gin_channels=gin_channels,
         )
-        self.post = torch.nn.Conv1d(
-            hidden_channels, self.half_channels * (2 - mean_only), 1
-        )
+        self.post = torch.nn.Conv1d(hidden_channels, self.half_channels * (2 - mean_only), 1)
         self.post.weight.data.zero_()
         self.post.bias.data.zero_()
 

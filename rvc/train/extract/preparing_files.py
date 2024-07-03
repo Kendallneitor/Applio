@@ -14,14 +14,10 @@ def generate_config(rvc_version, sampling_rate, model_path):
     if not os.path.exists(config_save_path):
         shutil.copyfile(config_path, config_save_path)
 
-
 def generate_filelist(pitch_guidance, model_path, rvc_version, sampling_rate):
     gt_wavs_dir = f"{model_path}/sliced_audios"
-    feature_dir = (
-        f"{model_path}/v1_extracted"
-        if rvc_version == "v1"
-        else f"{model_path}/v2_extracted"
-    )
+    feature_dir = f"{model_path}/{rvc_version}_extracted"
+
     if pitch_guidance == 1:
         f0_dir = f"{model_path}/f0"
         f0nsf_dir = f"{model_path}/f0_voiced"

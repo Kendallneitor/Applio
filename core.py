@@ -961,6 +961,7 @@ def parse_arguments():
         type=str,
         help="Version of the model",
         choices=["v1", "v2"],
+        choices=["v1", "v2", "v3"],
         default="v2",
     )
     extract_parser.add_argument(
@@ -1035,6 +1036,7 @@ def parse_arguments():
         type=str,
         help="Version of the model",
         choices=["v1", "v2"],
+        choices=["v1", "v2", "v3"],
         default="v2",
     )
     train_parser.add_argument(
@@ -1159,6 +1161,7 @@ def parse_arguments():
         type=str,
         help="Version of the model",
         choices=["v1", "v2"],
+        choices=["v1", "v2", "v3"],
         default="v2",
     )
 
@@ -1191,6 +1194,7 @@ def parse_arguments():
         type=str,
         help="Version of the model",
         choices=["v1", "v2"],
+        choices=["v1", "v2", "v3"],
         default="v2",
     )
     model_extract_parser.add_argument(

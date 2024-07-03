@@ -5,10 +5,10 @@ from typing import Optional
 from rvc.lib.algorithm.commons import sequence_mask
 from rvc.lib.algorithm.modules import WaveNet
 from rvc.lib.algorithm.normalization import LayerNorm
-from rvc.lib.algorithm.attentions import FFN, MultiHeadAttention
+from rvc.lib.algorithm.attentions import FFN, FFNV2, MultiHeadAttention
 
 
-class Encoder(torch.nn.Module):
+class EncoderV1(torch.nn.Module):
     """
     Encoder module for the Transformer model.
 
@@ -90,7 +90,48 @@ class Encoder(torch.nn.Module):
         x = x * x_mask
         return x
 
+class EncoderV2(torch.nn.Module):
+    def __init__(self, hidden_channels, filter_channels, n_heads, n_layers, kernel_size=1, p_dropout=0.0,
+                 window_size=10, **kwargs):
+        super().__init__()
+        self.hidden_channels = hidden_channels
+        self.filter_channels = filter_channels
+        self.n_heads = n_heads
+        self.n_layers = int(n_layers)
+        self.kernel_size = kernel_size
+        self.p_dropout = p_dropout
+        self.window_size = window_size
 
+        self.drop = torch.nn.Dropout(p_dropout)
+        self.attn_layers = torch.nn.ModuleList()
+        self.norm_layers_1 = torch.nn.ModuleList()
+        self.ffn_layers = torch.nn.ModuleList()
+        self.norm_layers_2 = torch.nn.ModuleList()
+        for i in range(self.n_layers):
+            self.attn_layers.append(
+                torch.nn.MultiheadAttention(hidden_channels, n_heads, dropout=p_dropout, batch_first=True))
+            self.norm_layers_1.append(torch.nn.LayerNorm(hidden_channels))
+            self.ffn_layers.append(
+                FFNV2(hidden_channels, hidden_channels, filter_channels, kernel_size, p_dropout=p_dropout))
+            self.norm_layers_2.append(torch.nn.LayerNorm(hidden_channels))
+
+    def forward(self, x, x_mask):
+        attn_mask = x_mask.unsqueeze(1) * x_mask.unsqueeze(2)
+        attn_mask = attn_mask[0]
+        attn_mask = attn_mask == 0
+        x = x * x_mask.unsqueeze(-1)
+        for attn_layer, norm_layer_1, ffn_layer, norm_layer_2 in zip(self.attn_layers, self.norm_layers_1,
+                                                                     self.ffn_layers, self.norm_layers_2):
+            y, _ = attn_layer(x, x, x, attn_mask=attn_mask)
+            y = self.drop(y)
+            x = norm_layer_1(x + y)
+
+            y = ffn_layer(x, x_mask)
+            y = self.drop(y)
+            x = norm_layer_2(x + y)
+        x = x * x_mask.unsqueeze(-1)
+        return x
+    
 class TextEncoderV1(torch.nn.Module):
     """Text Encoder with 256 embedding dimension.
 
@@ -138,7 +179,7 @@ class TextEncoderV1(torch.nn.Module):
         self.lrelu = torch.nn.LeakyReLU(0.1, inplace=True)
         if f0 == True:
             self.emb_pitch = torch.nn.Embedding(256, hidden_channels)  # pitch 256
-        self.encoder = Encoder(
+        self.encoder = EncoderV1(
             hidden_channels,
             filter_channels,
             n_heads,
@@ -211,17 +252,17 @@ class TextEncoderV2(torch.nn.Module):
         self.p_dropout = float(p_dropout)
         self.emb_phone = torch.nn.Linear(768, hidden_channels)
         self.lrelu = torch.nn.LeakyReLU(0.1, inplace=True)
-        if f0 == True:
-            self.emb_pitch = torch.nn.Embedding(256, hidden_channels)  # pitch 256
-        self.encoder = Encoder(
+        self.encoder = EncoderV2(
             hidden_channels,
             filter_channels,
             n_heads,
             n_layers,
             kernel_size,
-            float(p_dropout),
+            p_dropout,
         )
         self.proj = torch.nn.Conv1d(hidden_channels, out_channels * 2, 1)
+        if f0 is True:
+            self.emb_pitch = torch.nn.Embedding(256, hidden_channels)
 
     def forward(self, phone: torch.Tensor, pitch: torch.Tensor, lengths: torch.Tensor):
         if pitch is None:
@@ -230,11 +271,11 @@ class TextEncoderV2(torch.nn.Module):
             x = self.emb_phone(phone) + self.emb_pitch(pitch)
         x = x * math.sqrt(self.hidden_channels)  # [b, t, h]
         x = self.lrelu(x)
-        x = torch.transpose(x, 1, -1)  # [b, h, t]
-        x_mask = torch.unsqueeze(sequence_mask(lengths, x.size(2)), 1).to(x.dtype)
-        x = self.encoder(x * x_mask, x_mask)
-        stats = self.proj(x) * x_mask
-
+        x_mask = sequence_mask(lengths, x.size(1)).to(x.dtype)
+        x = self.encoder(x, x_mask)
+        x_mask = x_mask.unsqueeze(-1)
+        stats = self.proj(x.transpose(1, 2)).transpose(1, 2) * x_mask
+        stats = stats.transpose(1, 2)
         m, logs = torch.split(stats, self.out_channels, dim=1)
         return m, logs, x_mask
 
@@ -293,9 +334,16 @@ class PosteriorEncoder(torch.nn.Module):
         self.proj = torch.nn.Conv1d(hidden_channels, out_channels * 2, 1)
 
     def forward(
-        self, x: torch.Tensor, x_lengths: torch.Tensor, g: Optional[torch.Tensor] = None
+            self, x: torch.Tensor, x_lengths: torch.Tensor, g: Optional[torch.Tensor] = None
     ):
-        x_mask = torch.unsqueeze(sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
+        """
+        Perform forward pass of network
+        Specifically, perform operations to calculate a mean and log variance vector
+        representing a latent distribution conditioned on x
+        """
+        x_mask = torch.unsqueeze(sequence_mask(x_lengths, x.size(2)), 1).to(
+            x.dtype
+        )
         x = self.pre(x) * x_mask
         x = self.enc(x, x_mask, g=g)
         stats = self.proj(x) * x_mask
@@ -304,7 +352,6 @@ class PosteriorEncoder(torch.nn.Module):
         return z, m, logs, x_mask
 
     def remove_weight_norm(self):
-        """Removes weight normalization from the encoder."""
         self.enc.remove_weight_norm()
 
     def __prepare_scriptable__(self):

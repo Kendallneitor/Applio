@@ -5,6 +5,7 @@ import datetime
 import glob
 import json
 import re
+from collections import OrderedDict
 
 from utils import (
     get_hparams,
@@ -52,7 +53,7 @@ from rvc.lib.algorithm import commons
 
 hps = get_hparams()
 if hps.version == "v1":
-    from rvc.lib.algorithm.discriminators import MultiPeriodDiscriminator
+    from rvc.lib.algorithm.discriminators import MultiPeriodDiscriminatorV1 as MultiPeriodDiscriminator
     from rvc.lib.algorithm.synthesizers import SynthesizerV1_F0 as RVC_Model_f0
     from rvc.lib.algorithm.synthesizers import SynthesizerV1_NoF0 as RVC_Model_nof0
 elif hps.version == "v2":
@@ -60,6 +61,12 @@ elif hps.version == "v2":
         MultiPeriodDiscriminatorV2 as MultiPeriodDiscriminator,
     )
     from rvc.lib.algorithm.synthesizers import SynthesizerV2_F0 as RVC_Model_f0
+    from rvc.lib.algorithm.synthesizers import SynthesizerV2_NoF0 as RVC_Model_nof0
+elif hps.version == "v3":
+    from rvc.lib.algorithm.discriminators import (
+        MultiPeriodDiscriminatorV3 as MultiPeriodDiscriminator,
+    )
+    from rvc.lib.algorithm.synthesizers import SynthesizerV3_F0 as RVC_Model_f0
     from rvc.lib.algorithm.synthesizers import SynthesizerV2_NoF0 as RVC_Model_nof0
 
 
@@ -335,14 +342,20 @@ def run(
         if hps.pretrainG != "":
             if rank == 0:
                 print(f"Loaded pretrained (G) '{hps.pretrainG}'")
+            state_dict_g = torch.load(hps.pretrainG, map_location="cpu")["model"]
             if hasattr(net_g, "module"):
                 net_g.module.load_state_dict(
-                    torch.load(hps.pretrainG, map_location="cpu")["model"]
+                    state_dict_g
                 )
-
             else:
+                excluded_keys = {"emb_g.weight"}
+                new_sd = OrderedDict()
+                for k, v in state_dict_g.items():
+                    if k not in excluded_keys:
+                        new_sd[k] = v
+                state_dict_g = new_sd
                 net_g.load_state_dict(
-                    torch.load(hps.pretrainG, map_location="cpu")["model"]
+                    state_dict_g
                 )
 
         if hps.pretrainD != "":
