@@ -960,9 +960,8 @@ def parse_arguments():
         "--rvc_version",
         type=str,
         help="Version of the model",
-        choices=["v1", "v2"],
         choices=["v1", "v2", "v3"],
-        default="v2",
+        default="v3",
     )
     extract_parser.add_argument(
         "--f0_method",
@@ -1035,9 +1034,8 @@ def parse_arguments():
         "--rvc_version",
         type=str,
         help="Version of the model",
-        choices=["v1", "v2"],
         choices=["v1", "v2", "v3"],
-        default="v2",
+        default="v3",
     )
     train_parser.add_argument(
         "--save_every_epoch",
@@ -1160,9 +1158,8 @@ def parse_arguments():
         "--rvc_version",
         type=str,
         help="Version of the model",
-        choices=["v1", "v2"],
         choices=["v1", "v2", "v3"],
-        default="v2",
+        default="v3",
     )
 
     # Parser for 'model_extract' mode
@@ -1193,9 +1190,8 @@ def parse_arguments():
         "--rvc_version",
         type=str,
         help="Version of the model",
-        choices=["v1", "v2"],
         choices=["v1", "v2", "v3"],
-        default="v2",
+        default="v3",
     )
     model_extract_parser.add_argument(
         "--epoch",

@@ -345,7 +345,7 @@ def train_tab():
                     label=i18n("RVC Version"),
                     info=i18n("The RVC version of the model."),
                     choices=["v1", "v2", "v3"],
-                    value="v2",
+                    value="v3",
                     interactive=True,
                 )
 
