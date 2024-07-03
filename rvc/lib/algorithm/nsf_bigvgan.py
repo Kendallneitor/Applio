@@ -282,12 +282,12 @@ class SpeakerAdapter(nn.Module):
         return y
 
 
-class GeneratorBigVgan(torch.nn.Module):
+class GeneratorNSF_BIGVGAN(torch.nn.Module):
     # this is our main BigVGAN model. Applies anti-aliased periodic activation for resblocks.
     def __init__(self, resblock_kernel_sizes, resblock_dilation_sizes,
                  upsample_rates, upsample_kernel_sizes, upsample_input,
                  upsample_initial_channel, sampling_rate, spk_dim):
-        super(GeneratorBigVgan, self).__init__()
+        super(GeneratorNSF_BIGVGAN, self).__init__()
         self.num_kernels = len(resblock_kernel_sizes)
         self.num_upsamples = len(upsample_rates)
         # speaker adaper, 256 should change by what speaker encoder you use
